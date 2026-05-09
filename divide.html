@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Property Division</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 24px;
+    color: #222;
+    background: #fafafa;
+  }
+  h1 { margin-top: 0; font-size: 1.4rem; }
+  .summary { color: #555; margin-bottom: 16px; font-size: 0.95rem; }
+  .controls {
+    background: #fff;
+    border: 1px solid #e1e1e1;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+  .slider-row label { font-weight: 600; min-width: 180px; }
+  .slider-row input[type=range] { flex: 1; }
+  .slider-value {
+    font-family: monospace;
+    background: #eef3ff;
+    padding: 4px 10px;
+    border-radius: 4px;
+    min-width: 130px;
+    text-align: right;
+    font-weight: 600;
+    color: #1d4ed8;
+  }
+  .scale {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: #888;
+    padding: 0 4px;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid #eee;
+    font-size: 0.9rem;
+    vertical-align: top;
+  }
+  th {
+    background: #f4f6fa;
+    font-weight: 600;
+    color: #333;
+    position: sticky;
+    top: 0;
+  }
+  td.num, th.num { text-align: right; font-family: monospace; white-space: nowrap; }
+  tr:hover td { background: #fafbff; }
+  .count {
+    margin-bottom: 10px;
+    font-size: 0.95rem;
+    color: #444;
+  }
+  .empty {
+    padding: 30px;
+    text-align: center;
+    color: #888;
+    background: #fff;
+    border-radius: 8px;
+  }
+  .pill {
+    display: inline-block;
+    background: #f0f3f8;
+    border-radius: 4px;
+    padding: 2px 6px;
+    margin: 1px 2px;
+    font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+
+<h1>Property Division — Two-Set Partitions</h1>
+<div class="summary" id="summary"></div>
+
+<div class="controls">
+  <div class="slider-row">
+    <label for="threshold">Max difference (Rs.):</label>
+    <input type="range" id="threshold" min="0" max="5000000" step="100000" value="0">
+    <span class="slider-value" id="thresholdValue">0</span>
+  </div>
+  <div class="scale">
+    <span>0</span>
+    <span>10,00,000</span>
+    <span>20,00,000</span>
+    <span>30,00,000</span>
+    <span>40,00,000</span>
+    <span>50,00,000</span>
+  </div>
+</div>
+
+<div class="count" id="count"></div>
+<div id="results"></div>
+
+<script>
+const properties = [
+  { name: "Komala vilas",            value: 51222000 },
+  { name: "Bhavanarayana",           value: 47516000 },
+  { name: "Palliveedi",              value:  9629000 },
+  { name: "Gudisa",                  value: 12360000 },
+  { name: "Kamakoti",                value: 25020000 },
+  { name: "Beasant Road",            value: 54925000 },
+  { name: "Anirudh Apartment",       value:  3226000 },
+  { name: "Capital Residential",     value: 17500000 },
+  { name: "Capital Commercial",      value:  5250000 },
+  { name: "Ramannepalem - Big",      value: 63400000 },
+  { name: "Ramannepalem - Small",    value: 10700000 },
+  { name: "Velagaleru",              value: 16450000 },
+];
+
+function fmtINR(n) {
+  const s = String(n);
+  if (s.length <= 3) return s;
+  const last3 = s.slice(-3);
+  let rest = s.slice(0, -3);
+  const parts = [];
+  while (rest.length > 2) {
+    parts.unshift(rest.slice(-2));
+    rest = rest.slice(0, -2);
+  }
+  if (rest) parts.unshift(rest);
+  return parts.join(",") + "," + last3;
+}
+
+const total = properties.reduce((a, p) => a + p.value, 0);
+const n = properties.length;
+
+const allPartitions = [];
+for (let mask = 0; mask < (1 << n); mask++) {
+  if (mask & 1) continue;
+  let sumA = 0;
+  const aIdx = [];
+  const bIdx = [];
+  for (let i = 0; i < n; i++) {
+    if (mask & (1 << i)) {
+      sumA += properties[i].value;
+      aIdx.push(i);
+    } else {
+      bIdx.push(i);
+    }
+  }
+  const sumB = total - sumA;
+  const diff = Math.abs(sumA - sumB);
+  allPartitions.push({ aIdx, bIdx, sumA, sumB, diff });
+}
+allPartitions.sort((x, y) => x.diff - y.diff);
+
+document.getElementById("summary").textContent =
+  `Total valuation: Rs. ${fmtINR(total)}  •  ${n} properties  •  ${allPartitions.length} unique two-set partitions`;
+
+const slider = document.getElementById("threshold");
+const sliderValue = document.getElementById("thresholdValue");
+const countEl = document.getElementById("count");
+const resultsEl = document.getElementById("results");
+
+function render() {
+  const threshold = parseInt(slider.value, 10);
+  sliderValue.textContent = "Rs. " + fmtINR(threshold);
+
+  const filtered = allPartitions.filter(p => p.diff <= threshold);
+  countEl.textContent = `Found ${filtered.length} division${filtered.length === 1 ? "" : "s"} with difference ≤ Rs. ${fmtINR(threshold)}`;
+
+  if (filtered.length === 0) {
+    resultsEl.innerHTML = '<div class="empty">No partitions within this threshold. Increase the slider.</div>';
+    return;
+  }
+
+  let html = '<table><thead><tr>' +
+    '<th class="num">#</th>' +
+    '<th>Group A</th>' +
+    '<th class="num">Sum A (Rs.)</th>' +
+    '<th>Group B</th>' +
+    '<th class="num">Sum B (Rs.)</th>' +
+    '<th class="num">Difference (Rs.)</th>' +
+    '</tr></thead><tbody>';
+
+  filtered.forEach((p, i) => {
+    const aNames = p.aIdx.map(j => `<span class="pill">${properties[j].name}</span>`).join("");
+    const bNames = p.bIdx.map(j => `<span class="pill">${properties[j].name}</span>`).join("");
+    html += `<tr>
+      <td class="num">${i + 1}</td>
+      <td>${aNames}</td>
+      <td class="num">${fmtINR(p.sumA)}</td>
+      <td>${bNames}</td>
+      <td class="num">${fmtINR(p.sumB)}</td>
+      <td class="num"><strong>${fmtINR(p.diff)}</strong></td>
+    </tr>`;
+  });
+  html += "</tbody></table>";
+  resultsEl.innerHTML = html;
+}
+
+slider.addEventListener("input", render);
+render();
+</script>
+
+</body>
+</html>
